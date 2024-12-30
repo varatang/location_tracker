@@ -1,0 +1,13 @@
+version: '3'
+services:
+  location-tracker:
+    build: .
+    ports:
+      - "4001:4001"
+    restart: always
+    environment:
+      - NODE_ENV=production
+    # Se você precisar de variáveis de ambiente, adicione-as aqui
+    # environment:
+    #   - API_KEY=sua-chave
+    #   - OUTRO_VALOR=valor

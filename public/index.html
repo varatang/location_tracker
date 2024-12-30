@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Device Location Tracking</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+        }
+        #map { 
+            height: 600px;
+            flex: 1;
+        }
+        #deviceList {
+            width: 250px;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 5px;
+        }
+        .device-item {
+            padding: 10px;
+            margin: 5px 0;
+            background: white;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .device-item:hover {
+            background: #eee;
+        }
+        .device-item.active {
+            background: #e3f2fd;
+        }
+    </style>
+</head>
+<body>
+    <h1>Multi-Device Location Tracking</h1>
+    <div class="container">
+        <div id="deviceList">
+            <h2>Connected Devices</h2>
+            <div id="devices"></div>
+        </div>
+        <div id="map"></div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <!-- Socket.IO -->
+    <script src="/socket.io/socket.io.js"></script>
+    
+    <script>
+        // Initialize Socket.IO
+        const socket = io();
+        
+        // Generate a unique device ID
+        const deviceId = 'device_' + Math.random().toString(36).substr(2, 9);
+        
+        // Initialize the map
+        const map = L.map('map').setView([0, 0], 2);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: ' OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Store markers for each device
+        const markers = new Map();
+        
+        // Register device
+        // socket.emit('registerDevice', {
+        //     deviceId: deviceId,
+        //     name: `Device ${deviceId.slice(-4)}`
+        // });
+
+        // Update device list
+        socket.on('deviceList', (devices) => {
+            const devicesList = document.getElementById('devices');
+            devicesList.innerHTML = devices.map(device => `
+                <div class="device-item" onclick="focusDevice('${device.id}')">
+                    <strong>${device.name}</strong>
+                    ${device.lastLocation ? `
+                        <br>Lat: ${device.lastLocation.latitude.toFixed(6)}
+                        <br>Lng: ${device.lastLocation.longitude.toFixed(6)}
+                    ` : '<br>No location yet'}
+                </div>
+            `).join('');
+        });
+
+        // Handle location updates
+        socket.on('locationUpdate', (data) => {
+            console.log('Location update received:', data);
+            if (data && data.latitude && data.longitude) {
+                updateDeviceMarker(data.deviceId || deviceId, data.latitude, data.longitude);
+                console.log('Marker updated for device:', data.deviceId || deviceId);
+            } else {
+                console.error('Invalid location data received:', data);
+            }
+        });
+
+        // Handle device disconnection
+        socket.on('deviceDisconnected', (deviceId) => {
+            if (markers.has(deviceId)) {
+                markers.get(deviceId).remove();
+                markers.delete(deviceId);
+            }
+        });
+
+        function updateDeviceMarker(deviceId, lat, lng) {
+            if (markers.has(deviceId)) {
+                markers.get(deviceId).remove();
+            }
+            
+            const marker = L.marker([lat, lng])
+                .bindPopup(`Device ${deviceId.slice(-4)}`);
+            
+            marker.addTo(map);
+            markers.set(deviceId, marker);
+        }
+
+        function focusDevice(deviceId) {
+            const marker = markers.get(deviceId);
+            if (marker) {
+                map.setView(marker.getLatLng(), 15);
+                marker.openPopup();
+            }
+        }
+
+        // Send location updates
+        if ("geolocation" in navigator) {
+            navigator.geolocation.watchPosition((position) => {
+                const locationData = {
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude
+                };
+                socket.emit('sendLocation', locationData);
+            });
+        }
+    </script>
+</body>
+</html>
