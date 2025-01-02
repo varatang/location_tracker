@@ -1,12 +1,14 @@
 # Use a imagem oficial do Node.js como base
-FROM node:18-slim
+FROM node:18.18-slim
 
 # Cria e define o diretório de trabalho
 WORKDIR /usr/src/app
 
 # Copia os arquivos package.json e package-lock.json
 COPY package*.json ./
-
+COPY prisma ./prisma/
+RUN rm -rf node_modules
+RUN apt-get update -y && apt-get install -y openssl
 # Instala as dependências
 RUN npm install
 

@@ -41,13 +41,24 @@
         .device-item.active {
             background: #e3f2fd;
         }
+        .location-info {
+            font-size: 12px;
+            color: #666;
+            margin-top: 3px;
+        }
+        .device-name {
+            font-size: 14px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 3px;
+        }
     </style>
 </head>
 <body>
-    <h1>Multi-Device Location Tracking</h1>
+    <h2>Localizador de Dispositivos</h2>
     <div class="container">
         <div id="deviceList">
-            <h2>Connected Devices</h2>
+            <h2>Dispositivos</h2>
             <div id="devices"></div>
         </div>
         <div id="map"></div>
@@ -83,15 +94,27 @@
         // Update device list
         socket.on('deviceList', (devices) => {
             const devicesList = document.getElementById('devices');
-            devicesList.innerHTML = devices.map(device => `
+            // Ordena os dispositivos pelo lastUpdate (mais recente primeiro)
+            const sortedDevices = devices.sort((a, b) => {
+                // Se não tem lastUpdate, vai para o final da lista
+                if (!a.lastUpdate) return 1;
+                if (!b.lastUpdate) return -1;
+                return new Date(b.lastUpdate) - new Date(a.lastUpdate);
+            });
+
+            devicesList.innerHTML = sortedDevices.map(device => `
                 <div class="device-item" onclick="focusDevice('${device.id}')">
-                    <strong>${device.name}</strong>
-                    ${device.lastLocation ? `
-                        <br>Lat: ${device.lastLocation.latitude.toFixed(6)}
-                        <br>Lng: ${device.lastLocation.longitude.toFixed(6)}
-                    ` : '<br>No location yet'}
+                    <div class="device-name">${device.name}</div>
+                    ${device.lastLatitude && device.lastLongitude ? `
+                        <div class="location-info">
+                            Lat: ${device.lastLatitude.toFixed(6)}<br>
+                            Lng: ${device.lastLongitude.toFixed(6)}<br>
+                            Atualizado: ${new Date(device.lastUpdate).toLocaleString()}
+                        </div>
+                    ` : '<div class="location-info">Sem informação de localização</div>'}
                 </div>
             `).join('');
+            console.log('Received devices:', devices);
         });
 
         // Handle location updates
@@ -119,10 +142,18 @@
             }
             
             const marker = L.marker([lat, lng])
-                .bindPopup(`Device ${deviceId.slice(-4)}`);
+                .bindPopup(`
+                    <div class="device-name">Device ${deviceId.slice(-4)}</div>
+                    <div class="location-info">
+                        Latitude: ${lat.toFixed(6)}<br>
+                        Longitude: ${lng.toFixed(6)}<br>
+                        Atualizado: ${new Date().toLocaleString()}
+                    </div>
+                `);
             
             marker.addTo(map);
             markers.set(deviceId, marker);
+            console.log('Marker updated:', deviceId, lat, lng);
         }
 
         function focusDevice(deviceId) {
@@ -141,6 +172,15 @@
                     longitude: position.coords.longitude
                 };
                 socket.emit('sendLocation', locationData);
+                console.log('Sending location:', locationData);
+            }, 
+            (error) => {
+                console.error('Error getting location:', error);
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 5000,
+                maximumAge: 0
             });
         }
     </script>

@@ -7,7 +7,20 @@ services:
     restart: always
     environment:
       - NODE_ENV=production
-    # Se você precisar de variáveis de ambiente, adicione-as aqui
-    # environment:
-    #   - API_KEY=sua-chave
-    #   - OUTRO_VALOR=valor
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/location_db?schema=public
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:15
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=location_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
